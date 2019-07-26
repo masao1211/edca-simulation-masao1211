@@ -6,6 +6,7 @@ from functools import lru_cache
 from joblib import Parallel, delayed
 import itertools
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 deepcopy = copy.deepcopy
 
 
@@ -405,24 +406,25 @@ def calculate_and_save_result(Updates,Episodes,TimeSteps,Degrees,EDCAs,APs,Other
     np.save('Thetas',Thetas)
 def load_and_show_learning_curve(Updates,APs,OtherAPs):
     JThetas = np.load('JThetas.npy')
-    JThetas = JThetas[0:Updates+1]
+    JThetas = JThetas[0:Updates+1]/1000
     x = np.arange(Updates + 1)
-    VODelay = [[0,0,0],[3895,11495,20807],[12651,0,0]]
-    HeuristicsDelay = [[0,0,0],[3804,10424,18298],[11507,0,0]]
+    VODelay = np.array([[0,0,0],[3895,11495,20807],[12651,0,0]])/1000
+    HeuristicsDelay = np.array([[0,0,0],[3804,10424,18298],[11507,0,0]])/1000
     PiVO = VODelay[APs][OtherAPs] * np.ones(Updates + 1)
     PiHeuristics = HeuristicsDelay[APs][OtherAPs] * np.ones(Updates + 1)
     # plt.plot(x, JThetas)
-    plt.plot(x, JThetas, label="Proposed")
-    plt.plot(x, PiVO, label="Conventional")
-    plt.plot(x, PiHeuristics, label="Heuristics")
+    plt.plot(x, JThetas, label="Proposed", linewidth=3, color='#B8336A')
+    plt.plot(x, PiVO, label="Conventional", linewidth=3, color='#7BC950')
+    plt.plot(x, PiHeuristics, label="Heuristics", linewidth=3, color='#A6D9F7')
     plt.xlim([0,Updates])
     # plt.ylim([10000,20000])
     plt.rcParams['xtick.direction'] = 'in'
     plt.rcParams['ytick.direction'] = 'in'
-    plt.xlabel('Number of updating')
+    plt.rcParams['font.size'] = 18 #フォントの大きさ
+    # plt.xlabel('Number of updating')
     # plt.xlabel('Number of updating θ')
-    plt.ylabel("Transmission delay time (μs)")
-    plt.legend(loc='upper right', borderaxespad=2)
+    # plt.ylabel("Transmission delay (ms)")
+    # plt.legend(loc='upper right', borderaxespad=2)
     # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
     # plt.subplots_adjust(right=0.66)
     plt.savefig('learning_curve.pdf')
@@ -449,7 +451,8 @@ def load_and_show_policy(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams):
         y = np.empty(10)
         for Qvi in range(10):
             # state = [0,0,0,0,0]*APs + [0,0]*OtherAPs
-            state = [3,3,3,3,3,3,3,3,3,3]
+            # state = [3,3,3,3,3,3,3,3,3,3]
+            state = [0,0,0,0,0,0,0,0,0,0]
             state[8] = Qvo
             state[9] = Qvi
             state = tuple(state)
@@ -459,16 +462,21 @@ def load_and_show_policy(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams):
 
         # plt.plot(x, y, label="$S_2 =$" + "{}".format(Qvo))
         # plt.plot(x, y, label="$C_\mathrm{VO}^{(1)} =$" + "{}".format(Qvo))
-        plt.plot(x, y, label="$S_1 =$" + "{}".format(Qvo))
+        # plt.plot(x, y, label="$S_1 =$" + "{}".format(Qvo))
 
+        if Qvo==0:
+            plt.plot(x, y, label="$S_1 =$" + "{}".format(Qvo))
+
+
+    plt.rcParams['font.size'] = 18 #フォントの大きさ
     plt.xlim([0,9])
     plt.ylim([0,1.01])
 
     # plt.xlabel("Number of packets in VI queue of AP 1")
     # plt.xlabel("Number of backoff count in VI queue of AP 1")
-    plt.xlabel("Number of packet having arrived at AP 2")
+    # plt.xlabel("Number of packet having arrived at AP 2")
 
-    plt.ylabel("Probability of mapping to VO queue of AP 1")
+    # plt.ylabel("Probability of mapping to VO queue of AP 1")
     # plt.ylabel("Probability of mapping to VO queue of AP 2")
 
     plt.legend(loc='upper left', borderaxespad=1)
@@ -493,9 +501,9 @@ def delay_of_gotten_policy(Repeat,Updates,Degrees,PhiElementParams,EDCAs,OtherAP
     return np.sum(delay) / Repeat
 
 def show_bar(Updates,Degrees,APs,OtherAPs):
-    Proposed = [np.load('JThetas.npy')[Updates]]
-    Conventional = [[[0,0,0],[3895,11495,20807],[12651,0,0]][APs][OtherAPs]]
-    Heuristics = [[[0,0,0],[3804,10424,18298],[11507,0,0]][APs][OtherAPs]]
+    Proposed = np.array([np.load('JThetas.npy')[Updates]])/1000
+    Conventional = np.array([[[0,0,0],[3895,11495,20807],[12651,0,0]][APs][OtherAPs]])/1000
+    Heuristics = np.array([[[0,0,0],[3804,10424,18298],[11507,0,0]][APs][OtherAPs]])/1000
     Conventionaleft = [1]
     Heuristicleft = [2]
     Proposedleft = [3]
@@ -508,11 +516,85 @@ def show_bar(Updates,Degrees,APs,OtherAPs):
     center = [1,2,3]
     labels = ["Conventional","Heuristic","Proposed"]
     plt.xticks(center, labels)
-    plt.ylim(10000,13000)
+    plt.ylim(10,13)
 
-    plt.ylabel("Transmission delay time (μs)")
+    plt.ylabel("Transmission delay (ms)")
     plt.rcParams['ytick.direction'] = 'in'
     plt.savefig('bar.pdf')
+
+
+def draw_heatmap(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams):
+    ThetaStateActionElement,ThetaStateIterator,ThetaStateElement = calculate_theta_element_iterator(Degrees,EDCAs,APs,OtherAPs)
+
+    Theta = np.load('Thetas.npy')
+    PiFactor = Theta,ThetaStateElement,ThetaStateIterator,PhiElementParams
+    policy = np.empty((10,10),dtype=float)
+    for i in range(10):
+        for j in range(10):
+            # state = [0,0,0,0,0]*APs + [0,0]*OtherAPs
+            # state = [3,3,3,3,3,3,3,3,3,3]
+            state = [0,0,0,0,0,0,0,0,0,0]
+            state[9] = i
+            state[8] = j
+            state = tuple(state)
+            APChoice = 0
+            Pi = calculate_pi(Theta,state,PiFactor,ThetaStateActionElement,ThetaStateIterator,EDCAs,APChoice)
+            policy[i][j] = Pi[0]
+
+    plt.rcParams['font.size'] = 18 #フォントの大きさ
+
+    # plt.ylabel("Number of packet having arrived at AP 1")
+    # plt.xlabel("Number of packet having arrived at AP 2")
+
+    plt.rcParams['xtick.direction'] = 'in'
+    plt.rcParams['ytick.direction'] = 'in'
+
+    plt.imshow(policy,interpolation='nearest',vmin=0,vmax=1,cmap=plt.cm.binary)
+    plt.colorbar()
+    plt.xlim([-0.5,9.5])
+    plt.ylim([-0.5,9.5])
+    plt.xticks([0,1,2,3,4,5,6,7,8,9])
+    plt.yticks([0,1,2,3,4,5,6,7,8,9])
+    # plt.show()
+    plt.savefig('heatmap.pdf')
+    print(policy[0,9])
+    print(policy[9,0])
+
+def draw_3d(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams):
+    ThetaStateActionElement,ThetaStateIterator,ThetaStateElement = calculate_theta_element_iterator(Degrees,EDCAs,APs,OtherAPs)
+    X, Y = np.mgrid[0:10, 0:10]
+
+    Theta = np.load('Thetas.npy')
+    PiFactor = Theta,ThetaStateElement,ThetaStateIterator,PhiElementParams
+
+    Z = np.empty((10,10),dtype=float)
+    for x1,y1,i in zip(X,Y,range(10)):
+        for x2,y2,j in zip(x1,y1,range(10)):
+            # state = [3,3,3,3,3,3,3,3,3,3]
+            state = [0,0,0,0,0,0,0,0,0,0]
+            state[8] = x2
+            state[9] = y2
+            state = tuple(state)
+            APChoice = 0
+            Pi = calculate_pi(Theta,state,PiFactor,ThetaStateActionElement,ThetaStateIterator,EDCAs,APChoice)
+            Z[i][j] = Pi[0]
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    surf = ax.plot_surface(X, Y, Z, cmap='bwr')
+    # fig.colorbar(surf)
+    ax.set_xlim(0, 9)
+    ax.set_ylim(0, 9)
+    ax.set_zlim(0, 1)
+    plt.xticks([0,1,2,3,4,5,6,7,8,9])
+    plt.yticks([0,1,2,3,4,5,6,7,8,9])
+    ax.invert_xaxis()
+    # ax.set_xlabel("\nNumber of packet \nwhich arrived at AP 1")
+    # ax.set_ylabel("\nNumber of packet \nwhich arrived at AP 2")
+    ax.set_xlabel("\n\nNumber of packet\nwaiting in VO queue\nof AP 1")
+    ax.set_ylabel("\n\nNumber of packet\nwaiting in VI queue\nof AP 1")
+    ax.set_zlabel("\nProbability of mapping\nVO packet which arrived\nto VO queue of AP 1")
+    plt.savefig('3dmap.pdf')
 
 
 
@@ -539,12 +621,23 @@ def calculate_save_and_show(Updates,Episodes,TimeSteps,Degrees,EDCAs,APs,OtherAP
             print(delay_of_gotten_policy(Repeat,Updates,Degrees,PhiElementParams,EDCAs,OtherAPs,TimeSteps,ArrivalRate,InitialPacketInQueue))
         if p==5:
             show_bar(Updates,Degrees,APs,OtherAPs)
+        if p==6:
+            draw_heatmap(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams)
+        if p==7:
+            draw_3d(Updates,Degrees,EDCAs,APs,OtherAPs,PhiElementParams)
 
-calculate_save_and_show(Updates=100,Episodes=10000,TimeSteps=10,Degrees=3,EDCAs=2,APs=2,OtherAPs=0,LearningRate=1*10**-4,ArrivalRate=[1/200,1/400,0,0],InitialPacketInQueue=[0,0,0,0],Repeat=100000,mode='less',program=[3])
+# state = [Qvo1,Qvi1,Qvo2,Qvi2,BCvo1,BCvi1,BCvo1,BCvi1,Avo1,Avo2]
+calculate_save_and_show(Updates=100,Episodes=10000,TimeSteps=10,Degrees=3,EDCAs=2,APs=2,OtherAPs=0,LearningRate=1*10**-4,ArrivalRate=[1/200,1/400,0,0],InitialPacketInQueue=[0,0,0,0],Repeat=100000,mode='less',program=[7])
 
-print(np.load('Jthetas.npy')[100])
-print(100-100*np.load('Jthetas.npy')[0]/12651)
-print(100-100*np.load('Jthetas.npy')[0]/11507)
+
+
+
+import matplotlib.font_manager
+print([f.name for f in matplotlib.font_manager.fontManager.ttflist])
+
+# print(np.load('Jthetas.npy')[100])
+# print(100-100*np.load('Jthetas.npy')[0]/12651)
+# print(100-100*np.load('Jthetas.npy')[0]/11507)
 
 # ////////////////////////////////////////////////////////////////////////////////////////////////////
 # ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -568,25 +661,24 @@ print(100-100*np.load('Jthetas.npy')[0]/11507)
 # PhiElementParams = (np.ones(OtherAPs*2+5,dtype=int),(1/5)*np.ones(OtherAPs*2+5,dtype=int))
 
 
-if __name__ == '__main__':
-    import time as ttiimmee
-    start = ttiimmee.time()
-
-    calculate_save_and_show(Updates=100,Episodes=10000,TimeSteps=10,Degrees=3,EDCAs=2,APs=3,OtherAPs=0,LearningRate=1*10**-4,ArrivalRate=[1/200,1/400,0,0],InitialPacketInQueue=[0,0,0,0],Repeat=1,mode='less',program=[1])
-
-    elapsed_time = ttiimmee.time() - start
-    print ("elapsed_time:{0}".format(elapsed_time) + "[sec]")
+# if __name__ == '__main__':
+#     import time as ttiimmee
+#     start = ttiimmee.time()
+#
+#     calculate_save_and_show(Updates=100,Episodes=10000,TimeSteps=10,Degrees=3,EDCAs=2,APs=3,OtherAPs=0,LearningRate=1*10**-4,ArrivalRate=[1/200,1/400,0,0],InitialPacketInQueue=[0,0,0,0],Repeat=1,mode='less',program=[1])
+#
+#     elapsed_time = ttiimmee.time() - start
+#     print ("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
 # elapsed_time:107.05730676651001[sec]
 # elapsed_time:133.29407596588135[sec]
 
-a = np.zeros(3,dtype=int)
-a[0] = 2**60
-a[0] += 2**60
-print(a)
-
-
-
-
-# joblibで更新
-# npできるとこはnp
+n=200
+hm = np.empty((n,1),dtype=float)
+for i in range(n):
+    hm[i][0] = n-i
+fig, ax = plt.subplots()
+hm = ax.pcolor(hm,cmap=plt.cm.binary)
+plt.tick_params(labelbottom=False,labelleft=False,labelright=False,labeltop=False)
+plt.tick_params(bottom=False,left=False,right=False,top=False)
+plt.savefig('heatmap.pdf')
