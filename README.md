@@ -1,4 +1,4 @@
-# Introduction
+# Self-Introduction
 In this page, I introduce myself.
 
 atcoderフォルダには、競技プログラミング用のライブラリが入っています。
