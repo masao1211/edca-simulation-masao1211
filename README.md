@@ -11,3 +11,6 @@ seiseki.pdfは京都大学での成績です。
 http://www.windsurfing.kusu.kyoto-u.ac.jp/record2/2018record/2018record.html  
 HP係をしていて、私が新たに作ったページはこちらです。  
 http://www.windsurfing.kusu.kyoto-u.ac.jp/weather/weather.html
+
+さらに改善しようとしているページはことらです。
+https://github.com/masao1211/windsurfing
